@@ -35,7 +35,7 @@ fn main() {
     let base_dir = match args.base {
         Some(ref base) => PathBuf::from(base),
         None => {
-            if args.no_git_base {
+            if args.no_git {
                 // Git search disabled, use CWD
                 env::current_dir().expect("Failed to get current directory")
             } else {

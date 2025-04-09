@@ -25,14 +25,14 @@ impl TestArgsBuilder {
             args: Args {
                 dir: path.to_string_lossy().to_string(), // Default dir to temp dir
                 base: None,
-                no_git_base: false, // Default to allowing git search
+                no_git: false, // Default to allowing git search
                 extensions: None,
                 config_file: None,
                 no_recursive: false,
                 dry_run: false,
                 comment_style: None,
                 force: false,
-                no_strip: false,
+                keep: false,
                 print_extensions: false,
                 no_ignore_merge: false, // Default to allowing merge
                 clean: false,
@@ -58,7 +58,7 @@ impl TestArgsBuilder {
     }
 
     fn no_git(mut self, no_git: bool) -> Self {
-        self.args.no_git_base = no_git;
+        self.args.no_git = no_git;
         self
     }
 
@@ -108,7 +108,7 @@ impl TestArgsBuilder {
     }
 
     fn keep(mut self, strip: bool) -> Self {
-        self.args.no_strip = strip;
+        self.args.keep = strip;
         self
     }
 
@@ -143,7 +143,7 @@ fn determine_test_paths(args: &Args, temp_root: &Path) -> (PathBuf, Option<PathB
             .canonicalize()
             .unwrap_or_else(|_| panic!("Test base {} not found", base)),
         None => {
-            if args.no_git_base {
+            if args.no_git {
                 temp_root.canonicalize().unwrap() // Simulate CWD fallback to temp_root
             } else if let Some(git_root) = find_git_root(&start_dir) {
                 git_base_used = true;

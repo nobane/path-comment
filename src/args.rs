@@ -16,27 +16,27 @@ pub struct Args {
     #[arg(short, long)]
     pub base: Option<String>,
 
-    /// Disable searching for a .git directory to determine the base path.
-    /// If --base is not provided, uses the current working directory.
-    #[arg(long, default_value_t = false)]
-    pub no_git_base: bool,
-
-    /// Disables processing files recursively
-    #[arg(long, default_value_t = false)]
-    pub no_recursive: bool,
-
     /// Keep other existing path comments in the file.
     /// By default, all path comments are removed from the file.
-    #[arg(long, default_value_t = false)]
-    pub no_strip: bool,
+    #[arg(short, long, default_value_t = false)]
+    pub keep: bool,
 
-    /// If used, the --no-strip flag is ignored.
+    /// If used, the --keep is ignored.
     #[arg(long, default_value_t = false)]
     pub clean: bool,
 
     /// Process folders that would normally be ignored (node_modules, venv, etc.)
     #[arg(short, long, default_value_t = false)]
     pub force: bool,
+
+    /// Disable searching for a .git directory to determine the base path.
+    /// If --base is not provided, uses the current working directory.
+    #[arg(long, default_value_t = false)]
+    pub no_git: bool,
+
+    /// Disables processing files recursively
+    #[arg(long, default_value_t = false)]
+    pub no_recursive: bool,
 
     /// Disable merging ignore rules from .gitignore found in the base directory.
     #[arg(long, default_value_t = false)]
@@ -54,7 +54,7 @@ pub struct Args {
     #[arg(short, long)]
     pub dry_run: bool,
 
-    /// Force a specific comment style to use (overrides config file)
+    /// Force override a specific comment style to use (overrides config file)
     #[arg(short = 's', long, value_enum)]
     pub comment_style: Option<comments::Style>,
 

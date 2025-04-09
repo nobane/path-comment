@@ -290,7 +290,7 @@ impl Cli {
         if already_had_path_comment {
             // If the correct comment is already there AND we are not stripping other potential
             // path comments, we can skip modification entirely.
-            if self.args.no_strip || !self.args.clean {
+            if self.args.keep || !self.args.clean {
                 println!("{processed} {}", no_change(&first_line));
                 self.skipped_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(());
@@ -315,7 +315,7 @@ impl Cli {
 
         // Find all existing path-looking comments *if* stripping is enabled
         let mut path_comment_line_numbers = Vec::new();
-        if !self.args.no_strip {
+        if !self.args.keep {
             for (line_num, line) in lines.iter().enumerate() {
                 if line_num == 0 && already_had_path_comment {
                     continue;
@@ -338,28 +338,28 @@ impl Cli {
                     println!("{processed} {}", no_change(&first_line));
                 }
             } else if self.args.clean {
-                println!("{processed} {}", no_change("(no path comment)"));
+                println!("{processed} {}", no_change("(no change)"));
             } else {
                 println!("{processed} {}", added(&first_line));
             }
         } else {
             println!("{processed} ");
 
-            // Show other path comments being removed (if stripping)
-            if !self.args.no_strip {
-                for &line_num in &path_comment_line_numbers {
-                    println!("{}", removed(lines[line_num]));
-                }
-            }
             if already_had_path_comment {
                 if self.args.clean {
                     println!("{}", removed(&first_line));
                 } else {
                     println!("{}", no_change(&first_line));
                 }
-            } else if self.args.clean {
-                println!("{}", no_change("(no path comment)"));
-            } else {
+            }
+            // Show other path comments being removed (if stripping)
+            if !self.args.keep {
+                for &line_num in &path_comment_line_numbers {
+                    println!("{}", removed(lines[line_num]));
+                }
+            }
+
+            if !already_had_path_comment && !self.args.clean {
                 println!("{}", added(&first_line));
             }
 
@@ -379,7 +379,7 @@ impl Cli {
         // Add original lines, skipping the ones identified as path comments (if stripping)
         for (i, line) in lines.iter().enumerate() {
             let is_path_comment_to_strip =
-                !self.args.no_strip && path_comment_line_numbers.contains(&i);
+                !self.args.keep && path_comment_line_numbers.contains(&i);
 
             if i == 0 {
                 // Skip adding the original line 0 if:
