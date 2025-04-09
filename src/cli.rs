@@ -253,7 +253,7 @@ impl Cli {
             }
         };
 
-        let processed = format!("Processed {}", path.display()); // Renamed variable
+        let processed = format!("{}", path.display());
 
         // Read the file content
         let content = match fs::read_to_string(path) {
@@ -286,10 +286,8 @@ impl Cli {
         let lines: Vec<&str> = content.lines().collect();
 
         // First, check if the first line is exactly our desired comment
-        let mut already_had_path_comment = false;
-        if !lines.is_empty() && lines[0].trim() == first_line.trim() {
-            already_had_path_comment = true;
-
+        let already_had_path_comment = !lines.is_empty() && lines[0].trim() == first_line.trim();
+        if already_had_path_comment {
             // If the correct comment is already there AND we are not stripping other potential
             // path comments, we can skip modification entirely.
             if self.args.no_strip || !self.args.clean {
@@ -331,43 +329,44 @@ impl Cli {
 
         // --- Visualization ---
 
-        let mut removed_lines_output = Vec::new();
-        let mut added_lines_output = Vec::new();
-
         if path_comment_line_numbers.is_empty() {
             // First line is identical, show as no change
             if already_had_path_comment {
-                println!("{processed} {}", no_change(&first_line));
+                if self.args.clean {
+                    println!("{processed} {}", removed(&first_line));
+                } else {
+                    println!("{processed} {}", no_change(&first_line));
+                }
             } else if self.args.clean {
-                println!("{processed} {}", removed(&first_line));
+                println!("{processed} {}", no_change("(no path comment)"));
             } else {
                 println!("{processed} {}", added(&first_line));
             }
         } else {
             println!("{processed} ");
-            if !self.args.clean {
-                added_lines_output.push(added(&first_line));
-                // } else if already_had_path_comment {
-                // removed_lines_output.push(removed(&first_line));
+
+            // Show other path comments being removed (if stripping)
+            if !self.args.no_strip {
+                for &line_num in &path_comment_line_numbers {
+                    println!("{}", removed(lines[line_num]));
+                }
             }
+            if already_had_path_comment {
+                if self.args.clean {
+                    println!("{}", removed(&first_line));
+                } else {
+                    println!("{}", no_change(&first_line));
+                }
+            } else if self.args.clean {
+                println!("{}", no_change("(no path comment)"));
+            } else {
+                println!("{}", added(&first_line));
+            }
+
+            println!();
         }
 
-        // Show other path comments being removed (if stripping)
-        if !self.args.no_strip {
-            for &line_num in &path_comment_line_numbers {
-                removed_lines_output.push(removed(lines[line_num]));
-            }
-        }
-
-        // Print collected changes
-        for line in removed_lines_output {
-            println!("{}", line);
-        }
-        for line in added_lines_output {
-            println!("{}", line);
-        }
-        // Only print the blank line if changes were actually visualized
-        println!();
+        // --- Write Output ---
 
         // Build the final content lines vector
         // Start with the new first line we already added
