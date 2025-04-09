@@ -1,4 +1,3 @@
-// src/args.rs
 use clap::Parser;
 
 use crate::comments;
@@ -22,7 +21,28 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub no_git_base: bool,
 
-    /// File extensions to process (comma-separated)
+    /// Disables processing files recursively
+    #[arg(long, default_value_t = false)]
+    pub no_recursive: bool,
+
+    /// Keep other existing path comments in the file.
+    /// By default, all path comments are removed from the file.
+    #[arg(long, default_value_t = false)]
+    pub no_strip: bool,
+
+    /// If used, the --no-strip flag is ignored.
+    #[arg(long, default_value_t = false)]
+    pub clean: bool,
+
+    /// Process folders that would normally be ignored (node_modules, venv, etc.)
+    #[arg(short, long, default_value_t = false)]
+    pub force: bool,
+
+    /// Disable merging ignore rules from .gitignore found in the base directory.
+    #[arg(long, default_value_t = false)]
+    pub no_ignore_merge: bool,
+
+    /// File extensions to process (comma-separated), eg `rs,ts,toml`
     #[arg(short, long)]
     pub extensions: Option<String>,
 
@@ -30,38 +50,17 @@ pub struct Args {
     #[arg(long = "config")]
     pub config_file: Option<String>,
 
-    /// Process files recursively
-    #[arg(short, long, default_value_t = true)]
-    pub recursive: bool,
-
     /// Dry run (don't modify files, just print what would be done)
     #[arg(short, long)]
     pub dry_run: bool,
 
-    /// Comment style to use (overrides config file)
+    /// Force a specific comment style to use (overrides config file)
     #[arg(short = 's', long, value_enum)]
     pub comment_style: Option<comments::Style>,
-
-    /// Force processing of dependency directories (node_modules, venv, etc.)
-    #[arg(short, long)]
-    pub force: bool,
-
-    /// Strip existing path comments
-    #[arg(short = 'x', long, default_value_t = true)]
-    pub strip: bool,
-
-    /// Remove existing path comments instead of adding/updating them.
-    /// If used, the --strip flag is ignored.
-    #[arg(long, default_value_t = false)]
-    pub clean: bool,
 
     /// Print configured extensions styles, then exit.
     #[arg(short, long)]
     pub print_extensions: bool,
-
-    /// Disable merging ignore rules from .gitignore found in the base directory.
-    #[arg(long, default_value_t = false)]
-    pub no_ignore_merge: bool,
 }
 
 impl Args {

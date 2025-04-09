@@ -1,13 +1,15 @@
-// src/test.rs
-use super::*;
-use std::fs::{self, File, create_dir_all};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{self, File, create_dir_all},
+    io::Write,
+    path::{Path, PathBuf},
+};
 use tempfile::TempDir;
 
-use crate::args::Args;
-use crate::cli::Cli; // Keep specific import for Cli
-use crate::comments::Style as CommentStyle;
+use crate::{
+    args::Args,
+    cli::{self},
+    comments::Style,
+};
 
 struct TestArgsBuilder {
     args: Args,
@@ -26,11 +28,11 @@ impl TestArgsBuilder {
                 no_git_base: false, // Default to allowing git search
                 extensions: None,
                 config_file: None,
-                recursive: true,
+                no_recursive: false,
                 dry_run: false,
                 comment_style: None,
                 force: false,
-                strip: true,
+                no_strip: false,
                 print_extensions: false,
                 no_ignore_merge: false, // Default to allowing merge
                 clean: false,
@@ -86,7 +88,7 @@ impl TestArgsBuilder {
     // TODO: Test this!
     #[allow(unused)]
     fn recursive(mut self, recursive: bool) -> Self {
-        self.args.recursive = recursive;
+        self.args.no_recursive = recursive;
         self
     }
 
@@ -95,7 +97,7 @@ impl TestArgsBuilder {
         self
     }
 
-    fn comment_style(mut self, style: CommentStyle) -> Self {
+    fn comment_style(mut self, style: Style) -> Self {
         self.args.comment_style = Some(style);
         self
     }
@@ -105,8 +107,8 @@ impl TestArgsBuilder {
         self
     }
 
-    fn strip(mut self, strip: bool) -> Self {
-        self.args.strip = strip;
+    fn keep(mut self, strip: bool) -> Self {
+        self.args.no_strip = strip;
         self
     }
 
@@ -168,7 +170,7 @@ fn test_should_process_file() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     assert!(processor.should_process_file(Path::new("test.rs")));
     assert!(processor.should_process_file(Path::new("test.py")));
@@ -183,7 +185,7 @@ fn test_extensions_filter() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).extensions("rs,py").build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     assert!(processor.should_process_file(Path::new("test.rs")));
     assert!(processor.should_process_file(Path::new("test.py")));
@@ -196,7 +198,7 @@ fn test_determine_comment_style() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     let style_rs = processor
         .determine_comment_style(Path::new("test.rs"))
@@ -216,10 +218,10 @@ fn test_determine_comment_style() {
 fn test_explicit_comment_style() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir)
-        .comment_style(CommentStyle::Hash)
+        .comment_style(Style::Hash)
         .build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     let style = processor
         .determine_comment_style(Path::new("test.rs"))
@@ -233,7 +235,7 @@ fn test_process_file_new() {
     let test_file = create_test_file(temp_dir.path(), "test.js", "content();\n");
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build(); // Base defaults to temp_path
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -250,7 +252,7 @@ fn test_process_file_update() {
     );
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -264,7 +266,7 @@ fn test_process_file_dry_run() {
     let test_file = create_test_file(temp_dir.path(), "test.js", original_content);
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).dry_run(true).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -276,10 +278,10 @@ fn test_strip_disabled() {
     let temp_dir = TempDir::new().unwrap();
     let original_content = "// old/path/test.js\ncontent();\n";
     let test_file = create_test_file(temp_dir.path(), "test.js", original_content);
-    let (args, temp_path) = TestArgsBuilder::new(&temp_dir).strip(false).build();
+    let (args, temp_path) = TestArgsBuilder::new(&temp_dir).keep(true).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
     // Expect base_dir to be temp_path itself
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -294,7 +296,7 @@ fn test_empty_file_comment_addition() {
     let test_file = create_test_file(temp_dir.path(), "App.tsx", "");
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -313,7 +315,7 @@ fn test_base_dir_explicit() {
     // Explicitly set base to "project" relative to temp_dir
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).base("project").build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path); // Should resolve to project dir
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -339,7 +341,7 @@ fn test_base_dir_git_detect() {
     // Check base_dir was detected correctly
     assert_eq!(base_dir, git_root.canonicalize().unwrap());
 
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
     processor.process_file(&test_file).unwrap();
 
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -364,7 +366,7 @@ fn test_base_dir_no_git_flag() {
     // Check base_dir fell back correctly (simulated CWD = temp_path)
     assert_eq!(base_dir, temp_path.canonicalize().unwrap());
 
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
     processor.process_file(&test_file).unwrap();
 
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -387,7 +389,7 @@ fn test_base_dir_no_git_found_fallback() {
 
     assert_eq!(base_dir, temp_path.canonicalize().unwrap()); // Check fallback
 
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
     processor.process_file(&test_file).unwrap();
 
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -399,7 +401,7 @@ fn test_default_ignore_loaded() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     // Check some defaults loaded from ignore.cfg (embedded via include_str!)
     assert!(processor.ignored_dirs().contains("node_modules"));
@@ -434,7 +436,7 @@ fn test_gitignore_merge() {
     assert_eq!(base_dir, git_root.canonicalize().unwrap());
     assert!(gitignore_path.is_some()); // Ensure gitignore path was determined
 
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     // Check defaults are still there
     assert!(processor.ignored_dirs().contains("node_modules"));
@@ -464,7 +466,7 @@ fn test_gitignore_merge_disabled() {
     assert_eq!(base_dir, git_root.canonicalize().unwrap());
     assert!(gitignore_path.is_none()); // Ensure gitignore path is None due to flag
 
-    let processor = Cli::new(args, base_dir, gitignore_path); // Pass None for gitignore
+    let processor = cli::Cli::new(args, base_dir, gitignore_path); // Pass None for gitignore
 
     // Check defaults are there
     assert!(processor.ignored_dirs().contains("node_modules"));
@@ -482,7 +484,7 @@ fn test_directory_skipping_default() {
 
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
+    let processor = cli::Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
 
     // should_skip_directory checks if any component matches ignored set
     assert!(processor.should_skip_directory(&node_modules));
@@ -512,7 +514,7 @@ fn test_directory_skipping_gitignore_merged() {
         .dir(git_root.to_str().unwrap())
         .build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, temp_dir.path());
-    let processor = Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
+    let processor = cli::Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
 
     assert!(processor.ignored_dirs().contains("vendor")); // Check merge happened
     assert!(processor.should_skip_directory(&vendor_dir));
@@ -535,7 +537,7 @@ fn test_directory_skipping_force() {
 
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).force(true).build(); // Enable force
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
+    let processor = cli::Cli::new(args.clone(), base_dir.clone(), gitignore_path.clone());
 
     // Force flag overrides skipping logic
     assert!(!processor.should_skip_directory(&node_modules));
@@ -563,7 +565,7 @@ fn test_relative_path_calculation_standard() {
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
     assert_eq!(base_dir, temp_path.canonicalize().unwrap()); // Ensure base is temp path
 
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
     processor.process_file(&test_file).unwrap();
 
     let new_content = fs::read_to_string(&test_file).unwrap();
@@ -575,7 +577,7 @@ fn test_exact_path_comment_matching() {
     let temp_dir = TempDir::new().unwrap();
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     // Existing comment matches exactly what we would add (relative to base_dir = temp_path)
     let content_correct = "// test1.js\ncontent();\n";
@@ -622,7 +624,7 @@ fn test_multiple_path_comments() {
     let test_file = create_test_file(temp_dir.path(), "App.tsx", content);
     let (args, temp_path) = TestArgsBuilder::new(&temp_dir).build();
     let (base_dir, gitignore_path) = determine_test_paths(&args, &temp_path);
-    let processor = Cli::new(args, base_dir, gitignore_path);
+    let processor = cli::Cli::new(args, base_dir, gitignore_path);
 
     processor.process_file(&test_file).unwrap();
     let new_content = fs::read_to_string(&test_file).unwrap();

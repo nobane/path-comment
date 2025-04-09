@@ -1,4 +1,3 @@
-// src/cli.rs
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -45,7 +44,6 @@ const DEFAULT_IGNORE_CONFIG: &str = include_str!("ignore.cfg");
 fn load_ignored_dirs(gitignore_path: Option<&Path>) -> HashSet<String> {
     let mut ignored = HashSet::new();
 
-    // Load defaults from ignore.cfg
     for line in DEFAULT_IGNORE_CONFIG.lines() {
         let trimmed = line.trim();
         if !trimmed.is_empty() && !trimmed.starts_with('#') {
@@ -294,7 +292,7 @@ impl Cli {
 
             // If the correct comment is already there AND we are not stripping other potential
             // path comments, we can skip modification entirely.
-            if !self.args.strip || !self.args.clean {
+            if self.args.no_strip || !self.args.clean {
                 println!("{processed} {}", no_change(&first_line));
                 self.skipped_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(());
@@ -319,7 +317,7 @@ impl Cli {
 
         // Find all existing path-looking comments *if* stripping is enabled
         let mut path_comment_line_numbers = Vec::new();
-        if self.args.strip {
+        if !self.args.no_strip {
             for (line_num, line) in lines.iter().enumerate() {
                 if line_num == 0 && already_had_path_comment {
                     continue;
@@ -355,7 +353,7 @@ impl Cli {
         }
 
         // Show other path comments being removed (if stripping)
-        if self.args.strip {
+        if !self.args.no_strip {
             for &line_num in &path_comment_line_numbers {
                 removed_lines_output.push(removed(lines[line_num]));
             }
@@ -380,15 +378,12 @@ impl Cli {
         };
 
         // Add original lines, skipping the ones identified as path comments (if stripping)
-        // Also skip the original line 0 if it was a path comment that we are replacing/stripping.
         for (i, line) in lines.iter().enumerate() {
             let is_path_comment_to_strip =
-                self.args.strip && path_comment_line_numbers.contains(&i);
+                !self.args.no_strip && path_comment_line_numbers.contains(&i);
 
             if i == 0 {
-                // We already added the new/correct first line.
                 // Skip adding the original line 0 if:
-                // 1. It was a path comment being stripped/replaced OR
                 // 2. The first line wasn't changed (meaning the original line 0 was already correct)
                 if is_path_comment_to_strip || already_had_path_comment {
                     continue;
@@ -498,8 +493,8 @@ impl Cli {
 
         // Build the walker
         let mut builder = WalkBuilder::new(&self.args.dir);
-        builder.standard_filters(true); // Use .gitignore, .ignore etc by default
-        if !self.args.recursive {
+
+        if self.args.no_recursive {
             builder.max_depth(Some(1));
         }
 

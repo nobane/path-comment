@@ -1,4 +1,3 @@
-// src/comments.rs
 use std::collections::HashMap;
 
 use clap::ValueEnum;
@@ -73,39 +72,19 @@ pub static REGEXES: Lazy<HashMap<Style, Regex>> = Lazy::new(|| {
         Style::DoubleDash,
         Style::Percent,
     ] {
-        let (start_raw, end_raw) = style.delimiters();
-        // Trim whitespace for regex matching flexibility
-        let start = start_raw.trim_end();
-        let end = end_raw.trim_start();
-
-        // Regex Explanation:
-        // ^                     - Start of line
-        // \s*                   - Optional leading whitespace
-        // ({start_esc})         - Escaped start delimiter (captured)
-        // \s*                   - Optional whitespace after start delimiter
-        // (                     - Start capture group for the path
-        //   (?:/|\\|[A-Za-z]:)? - Optional root: /, \, or drive letter D:
-        //   (?:[\w\-\.\s]+(?:/|\\))+ - One or more directory/file parts separated by / or \
-        //                             Allows word chars, hyphens, dots, spaces within names
-        //   [\w\-\.\s]+         - The final filename part
-        //   (?:\.\w+)?          - Optional file extension
-        // |                     - OR (for simpler paths like just 'file.ext')
-        //   [\w\-\.\s]+\.\w+    - Filename with extension
-        // )                     - End capture group for the path
-        // \s*                   - Optional whitespace before end delimiter
-        // ({end_esc})           - Escaped end delimiter (captured)
-        // \s*                   - Optional trailing whitespace
-        // $                     - End of line
+        let (start, end) = style.delimiters();
         let pattern = format!(
-            r"^\s*({start_esc})\s*((?:/|\\|[A-Za-z]:)?(?:[\w\-\.\s]+(?:/|\\))+[\w\-\.\s]+(?:\.\w+)?|[\w\-\.\s]+\.\w+)\s*({end_esc})\s*$",
+            r"^({start_esc})\s*((?:/|\\|[A-Za-z]:)?(?:[\w\-\.]+(?:/|\\))+[\w\-\.]+(?:\.\w+)?|[\w\-\.]+\.\w+)\s*({end_esc})$",
             start_esc = regex::escape(start),
             end_esc = regex::escape(end)
         );
 
+        // Using expect is acceptable in static initialization since it will fail at startup
+        // if there's an issue with the regex patterns
         map.insert(
             style,
             Regex::new(&pattern)
-                .unwrap_or_else(|e| panic!("Failed to compile regex pattern for {style:?} style with pattern '{pattern}': {e}")),
+                .unwrap_or_else(|_| panic!("Failed to compile regex pattern for {style:?} style")),
         );
     }
 

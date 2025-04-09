@@ -1,4 +1,3 @@
-// src/main.rs
 use std::{
     env,
     path::{Path, PathBuf},
@@ -72,7 +71,6 @@ fn main() {
         process::exit(1);
     });
 
-    // Determine if we should look for and merge .gitignore
     let gitignore_path = if git_base_used && !args.no_ignore_merge {
         Some(base_dir.join(".gitignore"))
     } else {
